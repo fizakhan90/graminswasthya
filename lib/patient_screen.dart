@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:graminswasthya/chatbot_screen.dart';
 import 'package:graminswasthya/database_helper.dart';
 import 'package:graminswasthya/login_screen.dart';
-import 'package:graminswasthya/chatbot_screen.dart';
 
 class PatientScreen extends StatefulWidget {
-  const PatientScreen({super.key});
+  final String healthcareId;
+  
+  const PatientScreen({required this.healthcareId, super.key});
 
   @override
   _PatientScreenState createState() => _PatientScreenState();
@@ -34,6 +35,7 @@ class _PatientScreenState extends State<PatientScreen> {
     final age = _ageController.text.trim();
     final gender = _genderController.text.trim();
     final language = _selectedLanguage;
+    
 
     if (name.isEmpty || age.isEmpty || gender.isEmpty) {
       _showMessage("All fields are required");
@@ -50,7 +52,7 @@ class _PatientScreenState extends State<PatientScreen> {
     });
 
     try {
-      await dbHelper.addPatient(name, int.parse(age), gender, language);
+      await dbHelper.addPatient(name, int.parse(age), gender, language, widget.healthcareId);
       _showMessage("Patient added successfully");
       _fetchPatients();
       _clearFields();
@@ -72,7 +74,8 @@ class _PatientScreenState extends State<PatientScreen> {
     });
     
     try {
-      final data = await dbHelper.getPatients();
+      final data = await dbHelper.getPatients(widget.healthcareId);
+
       setState(() {
         patients = data;
       });

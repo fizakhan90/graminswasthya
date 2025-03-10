@@ -20,6 +20,7 @@ class DatabaseHelper {
   static final columnPatientAge = 'age';
   static final columnPatientGender = 'gender';
   static final columnPatientSymptoms = 'symptoms';
+  static final columnPatientHealthcareId = 'healthcare_id'; // FK to users
 
   // Singleton instance
   DatabaseHelper._privateConstructor();
@@ -36,8 +37,11 @@ class DatabaseHelper {
   // Initialize database
   _initDatabase() async {
     String path = join(await getDatabasesPath(), _databaseName);
-    return await openDatabase(path,
-        version: _databaseVersion, onCreate: _onCreate);
+    return await openDatabase(
+      path,
+      version: _databaseVersion,
+      onCreate: _onCreate,
+    );
   }
 
   // Create tables
@@ -57,69 +61,91 @@ class DatabaseHelper {
         $columnPatientName TEXT NOT NULL,
         $columnPatientAge INTEGER NOT NULL,
         $columnPatientGender TEXT NOT NULL,
-        $columnPatientSymptoms TEXT NOT NULL
+        $columnPatientSymptoms TEXT NOT NULL,
+        $columnPatientHealthcareId TEXT NOT NULL,
+        FOREIGN KEY ($columnPatientHealthcareId) REFERENCES $userTable($columnHealthcareId)
       )
     ''');
   }
 
   // Register a new user
-  Future<int> registerUser(String healthcareId, String password, String name) async {
+  Future<int> registerUser(
+    String healthcareId,
+    String password,
+    String name,
+  ) async {
     Database db = await database;
-    
+
     // Check if healthcare ID already exists
     final existingUser = await db.query(
       userTable,
       where: '$columnHealthcareId = ?',
       whereArgs: [healthcareId],
     );
-    
+
     if (existingUser.isNotEmpty) {
       throw Exception('Healthcare ID already exists');
     }
-    
+
     Map<String, dynamic> row = {
       columnHealthcareId: healthcareId,
       columnName: name,
-      columnPassword: password
+      columnPassword: password,
     };
-    
+
     return await db.insert(userTable, row);
   }
 
   // Login user
-  Future<Map<String, dynamic>?> loginUser(String healthcareId, String password) async {
+  Future<Map<String, dynamic>?> loginUser(
+    String healthcareId,
+    String password,
+  ) async {
     Database db = await database;
-    
+
     List<Map<String, dynamic>> result = await db.query(
       userTable,
       where: '$columnHealthcareId = ? AND $columnPassword = ?',
       whereArgs: [healthcareId, password],
     );
-    
+
     if (result.isEmpty) {
       return null;
     }
-    
+
     return result.first;
   }
 
-  // Add a new patient
-  Future<int> addPatient(String name, int age, String gender, String symptoms) async {
+  // Add a new patient with associated healthcare worker ID
+  Future<int> addPatient(
+    String name,
+    int age,
+    String gender,
+    String symptoms,
+    String healthcareId,
+  ) async {
     Database db = await database;
-    
+
     Map<String, dynamic> row = {
       columnPatientName: name,
       columnPatientAge: age,
       columnPatientGender: gender,
-      columnPatientSymptoms: symptoms
+      columnPatientSymptoms: symptoms,
+      columnPatientHealthcareId: healthcareId,
     };
-    
+
     return await db.insert(patientTable, row);
   }
 
-  // Get all patients
-  Future<List<Map<String, dynamic>>> getPatients() async {
+  // Get patients for a specific healthcare worker
+  Future<List<Map<String, dynamic>>> getPatients(String healthcareId) async {
     Database db = await database;
-    return await db.query(patientTable, orderBy: '$columnPatientId DESC');
+
+    return await db.query(
+      patientTable,
+      where: '$columnPatientHealthcareId = ?',
+      whereArgs: [healthcareId],
+      orderBy: '$columnPatientId DESC',
+    );
   }
 }

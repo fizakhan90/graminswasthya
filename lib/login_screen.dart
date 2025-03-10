@@ -70,7 +70,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (user != null) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => PatientScreen()),
+          MaterialPageRoute(
+            builder: (context) => PatientScreen(healthcareId: healthcareId),
+          ),
         );
       } else {
         _showMessage("Invalid credentials");
