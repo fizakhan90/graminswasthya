@@ -24,7 +24,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   
-  // Animation controller for the tab transition
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -110,11 +109,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       await dbHelper.registerUser(healthcareId, hashedPassword, name);
       _showMessage("Registration successful");
       
-      // Clear the fields
       _nameController.clear();
       _confirmPasswordController.clear();
       
-      // Switch back to login view
       setState(() {
         _isRegistering = false;
       });
@@ -131,7 +128,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _animationController.reset();
     setState(() {
       _isRegistering = !_isRegistering;
-      // Clear fields when switching modes
       if (_isRegistering) {
         _passwordController.clear();
       } else {
@@ -189,7 +185,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // App Logo
                           Container(
                             decoration: BoxDecoration(
                               color: Colors.teal.shade50,
@@ -204,7 +199,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 24),
                           
-                          // Title
                           Text(
                             _isRegistering ? "Create Account" : "Welcome Back",
                             textAlign: TextAlign.center,
@@ -217,7 +211,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 8),
                           
-                          // Subtitle
                           Text(
                             _isRegistering 
                               ? "Register to continue" 
@@ -230,7 +223,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 32),
                           
-                          // Healthcare Worker ID field
                           Text(
                             "Healthcare Worker ID",
                             style: TextStyle(
@@ -251,7 +243,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 20),
                           
-                          // Name field (only in registration mode)
                           if (_isRegistering) ...[
                             Text(
                               "Full Name",
@@ -274,7 +265,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             const SizedBox(height: 20),
                           ],
                           
-                          // Password field
                           Text(
                             "Password",
                             style: TextStyle(
@@ -306,7 +296,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 20),
                           
-                          // Confirm Password field (only in registration mode)
                           if (_isRegistering) ...[
                             Text(
                               "Confirm Password",
@@ -342,7 +331,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           
                           const SizedBox(height: 20),
                           
-                          // Login/Register Button
                           _isLoading
                             ? const Center(
                                 child: CircularProgressIndicator(),
@@ -355,7 +343,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               ),
                           const SizedBox(height: 20),
                           
-                          // Toggle Register/Login
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

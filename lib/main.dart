@@ -19,9 +19,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.teal,
         scaffoldBackgroundColor: const Color(0xFFF5F7FA),
-        fontFamily: 'Poppins', // Consider adding this font to your pubspec.yaml
+        fontFamily: 'Poppins', 
         
-        // AppBar Theme
         appBarTheme: const AppBarTheme(
           elevation: 0,
           backgroundColor: Colors.teal,
@@ -35,7 +34,6 @@ class MyApp extends StatelessWidget {
           iconTheme: IconThemeData(color: Colors.white),
         ),
         
-        // Elevated Button Theme
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.teal,
@@ -54,7 +52,6 @@ class MyApp extends StatelessWidget {
           ),
         ),
         
-        // Text Button Theme
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
             foregroundColor: Colors.teal[700],
@@ -65,7 +62,6 @@ class MyApp extends StatelessWidget {
           ),
         ),
         
-        // Input Decoration Theme
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
@@ -93,7 +89,6 @@ class MyApp extends StatelessWidget {
           prefixIconColor: Colors.teal[300],
         ),
         
-        // Card Theme
         cardTheme: CardTheme(
           elevation: 2,
           clipBehavior: Clip.antiAlias,
@@ -102,7 +97,6 @@ class MyApp extends StatelessWidget {
           ),
         ),
         
-        // Snackbar Theme
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.teal[700],

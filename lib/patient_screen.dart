@@ -21,7 +21,6 @@ class _PatientScreenState extends State<PatientScreen> {
   bool _isAddingPatient = false;
   String _selectedLanguage = 'Hindi';
   
-  // List of available languages
   final List<String> _languages = [
     'Hindi',
     'Telugu',
@@ -338,13 +337,12 @@ class _PatientScreenState extends State<PatientScreen> {
           final patient = patients[index];
           return GestureDetector(
             onTap: () {
-              // Navigate to chatbot screen when card is tapped
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => ChatbotScreen(
                     patientName: patient['name'],
-                    patientLanguage: patient['symptoms'], // DB field is still named 'symptoms' but contains language
+                    patientLanguage: patient['symptoms'], 
                   ),
                 ),
               );

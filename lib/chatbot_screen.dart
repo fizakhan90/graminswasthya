@@ -26,7 +26,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   void initState() {
     super.initState();
-    // Add initial greeting
     _addBotMessage("Hi ${widget.patientName}, how can I help you today? I'll respond in ${widget.patientLanguage}.");
   }
 
@@ -58,12 +57,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     _messageController.clear();
     _scrollToBottom();
 
-    // Simulate bot processing and response
     setState(() {
       _isLoading = true;
     });
 
-    // Simulate response time
     Timer(const Duration(seconds: 1), () {
       _processUserMessage(text);
       setState(() {
@@ -74,7 +71,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   void _processUserMessage(String message) {
-    // For demonstration purposes - you would integrate with a real AI service
     String lowerMessage = message.toLowerCase();
     String response = "";
 
@@ -92,7 +88,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       response = "I understand. Could you provide more details so I can better assist you?";
     }
 
-    // Add language context
     String languageNote = "";
     if (widget.patientLanguage != "English") {
       languageNote = "\n\n(This would be translated to ${widget.patientLanguage} in a production environment)";
@@ -104,23 +99,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   void _handleVoiceInput() {
     if (_isRecording) {
-      // Stop recording
       setState(() {
         _isRecording = false;
       });
       
-      // Simulate speech-to-text result
       _addUserMessage("This is a simulated voice message");
     } else {
-      // Start recording
       setState(() {
         _isRecording = true;
       });
 
-      // Simulate recording for 3 seconds
       Timer(const Duration(seconds: 3), () {
         if (_isRecording) {
-          _handleVoiceInput(); // This will stop the recording
+          _handleVoiceInput(); 
         }
       });
     }
@@ -181,7 +172,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       ),
       body: Column(
         children: [
-          // Chat messages
           Expanded(
             child: _messages.isEmpty
                 ? Center(
@@ -214,7 +204,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   ),
           ),
           
-          // Loading indicator
           if (_isLoading)
             Padding(
               padding: const EdgeInsets.all(8.0),
@@ -241,7 +230,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               ),
             ),
           
-          // Recording indicator
           if (_isRecording)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -274,7 +262,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               ),
             ),
           
-          // Message input
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             decoration: BoxDecoration(
@@ -291,7 +278,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             child: SafeArea(
               child: Row(
                 children: [
-                  // Voice input button
                   IconButton(
                     icon: Icon(
                       _isRecording ? Icons.stop : Icons.mic,
@@ -299,7 +285,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     ),
                     onPressed: _handleVoiceInput,
                   ),
-                  // Text input field
                   Expanded(
                     child: TextField(
                       controller: _messageController,
@@ -324,7 +309,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Send button
                   InkWell(
                     onTap: () {
                       _addUserMessage(_messageController.text);
