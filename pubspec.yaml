@@ -33,6 +33,13 @@ dependencies:
   sqflite: ^2.3.0  # SQLite plugin for Flutter
   path: ^1.8.3     # For managing database file paths
   crypto: ^3.0.3
+  flutter_tts: ^4.2.2
+  speech_to_text: ^7.0.0
+  permission_handler: ^11.4.0
+
+  flutter_localizations:
+    sdk: flutter
+  shared_preferences: ^2.2.0  # For storing language preference
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

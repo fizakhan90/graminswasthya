@@ -130,6 +130,7 @@ class _PatientScreenState extends State<PatientScreen> {
       floatingActionButton: _isAddingPatient
           ? null
           : FloatingActionButton(
+            focusColor: Colors.teal,
               onPressed: () {
                 setState(() {
                   _isAddingPatient = true;
@@ -268,7 +269,7 @@ class _PatientScreenState extends State<PatientScreen> {
             const SizedBox(height: 32),
             _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : Container(
+                : SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(

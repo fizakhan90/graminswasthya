@@ -214,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           Text(
                             _isRegistering 
                               ? "Register to continue" 
-                              : "Sign in to continue",
+                              : "Login in to continue",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 16,
@@ -338,7 +338,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             : ElevatedButton(
                                 onPressed: _isRegistering ? _register : _login,
                                 child: Text(
-                                  _isRegistering ? "Create Account" : "Sign In",
+                                  _isRegistering ? "Create Account" : "Login",
                                 ),
                               ),
                           const SizedBox(height: 20),
@@ -357,7 +357,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               TextButton(
                                 onPressed: _toggleAuthMode,
                                 child: Text(
-                                  _isRegistering ? "Sign In" : "Register",
+                                  _isRegistering ? "Login" : "Register",
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),

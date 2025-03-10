@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:graminswasthya/login_screen.dart';
-import 'database_helper.dart';
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
+import 'package:graminswasthya/splash_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -110,7 +108,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: SplashScreen(),
     );
   }
 }
