@@ -141,52 +141,93 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
   }
 
-  void _processUserMessage(String message) {
-    String lowerMessage = message.toLowerCase();
-    String response = "";
+ void _processUserMessage(String message) {
+  String lowerMessage = message.toLowerCase();
+  String response = "";
 
-    if (lowerMessage.contains("hello") || lowerMessage.contains("hi")) {
-      response = "Hello there! How are you feeling today?";
-    } else if (lowerMessage.contains("pain") || lowerMessage.contains("hurt")) {
-      response = "I'm sorry to hear you're in pain. Could you tell me more about where it hurts and when it started?";
-    } else if (lowerMessage.contains("fever") || lowerMessage.contains("temperature")) {
-      response = "Fever can be a sign of infection. Have you taken your temperature? Any other symptoms like headache or body aches?";
-    } else if (lowerMessage.contains("medicine") || lowerMessage.contains("medication")) {
-      response = "Are you currently taking any medications? It's important that I know to avoid any potential interactions.";
-    } else if (lowerMessage.contains("thank")) {
-      response = "You're welcome! Is there anything else I can help you with?";
-    } else {
-      response = "I understand. Could you provide more details so I can better assist you?";
-    }
-
-    // Only add language note for text display, not for speech
-    String displayResponse = response;
-    if (widget.patientLanguage != "English") {
-      displayResponse = response + "\n\n(This would be translated to ${widget.patientLanguage} in a production environment)";
-    }
-
-    _addBotMessage(displayResponse);
+  // Generate response based on user input
+  if (lowerMessage.contains("hello") || lowerMessage.contains("hi")) {
+    response = "Hello there! How are you feeling today?";
+  } else if (lowerMessage.contains("pain") || lowerMessage.contains("hurt")) {
+    response = "I'm sorry to hear you're in pain. Could you tell me more about where it hurts and when it started?";
+  } else if (lowerMessage.contains("fever") || lowerMessage.contains("temperature")) {
+    response = "Fever can be a sign of infection. Have you taken your temperature? Any other symptoms like headache or body aches?";
+  } else if (lowerMessage.contains("medicine") || lowerMessage.contains("medication")) {
+    response = "Are you currently taking any medications? It's important that I know to avoid any potential interactions.";
+  } else if (lowerMessage.contains("thank")) {
+    response = "You're welcome! Is there anything else I can help you with?";
+  } else {
+    response = "I understand. Could you provide more details so I can better assist you?";
   }
+
+  // Translate the response based on patient language
+  String translatedResponse = response;
+  if (widget.patientLanguage == "Hindi") {
+    translatedResponse = _translateToHindi(response);
+  } else if (widget.patientLanguage != "English") {
+    // For other languages, we'd add more translation methods
+    // For now, just add the note for display
+    translatedResponse = response;
+  }
+
+  // Display translated text with note for non-production environment
+  String displayResponse = translatedResponse;
+  if (widget.patientLanguage != "English") {
+    displayResponse = translatedResponse + "\n\n(This would connect to a proper translation API in production)";
+  }
+
+  _addBotMessage(displayResponse);
+}
+
+// Simple translation function for demo purposes
+// In a real app, you would use a translation API or service
+String _translateToHindi(String englishText) {
+  // Basic translation map for common phrases
+  final Map<String, String> translations = {
+    "Hello there! How are you feeling today?": 
+      "नमस्ते! आज आप कैसा महसूस कर रहे हैं?",
+    
+    "I'm sorry to hear you're in pain. Could you tell me more about where it hurts and when it started?": 
+      "मुझे दुख है कि आपको दर्द हो रहा है। क्या आप मुझे बता सकते हैं कि यह कहां दर्द होता है और कब शुरू हुआ था?",
+    
+    "Fever can be a sign of infection. Have you taken your temperature? Any other symptoms like headache or body aches?": 
+      "बुखार संक्रमण का संकेत हो सकता है। क्या आपने अपना तापमान लिया है? सिरदर्द या शरीर में दर्द जैसे कोई अन्य लक्षण?",
+    
+    "Are you currently taking any medications? It's important that I know to avoid any potential interactions.": 
+      "क्या आप वर्तमान में कोई दवाएं ले रहे हैं? किसी भी संभावित प्रतिक्रिया से बचने के लिए मेरा जानना जरूरी है।",
+    
+    "You're welcome! Is there anything else I can help you with?": 
+      "आपका स्वागत है! क्या कोई और चीज़ है जिसमें मैं आपकी मदद कर सकता हूँ?",
+    
+    "I understand. Could you provide more details so I can better assist you?": 
+      "मैं समझता हूँ। क्या आप अधिक विवरण प्रदान कर सकते हैं ताकि मैं आपकी बेहतर सहायता कर सकूं?"
+  };
+
+  // Return translation if available, otherwise return original text
+  return translations[englishText] ?? englishText;
+}
+
+
 
   // Text-to-Speech: Convert bot messages to speech
-  Future<void> _speakMessage(String message) async {
-    // Don't speak the translation note
-    String textToSpeak = message;
-    if (widget.patientLanguage != "English") {
-      textToSpeak = message.split("\n\n")[0]; // Get only the content before the note
-    }
-    
-    // Stop any ongoing speech
-    if (_isSpeaking) {
-      await _flutterTts.stop();
-    }
-    
-    setState(() {
-      _isSpeaking = true;
-    });
-    
-    await _flutterTts.speak(textToSpeak);
+Future<void> _speakMessage(String message) async {
+  // Don't speak the translation note
+  String textToSpeak = message;
+  if (message.contains("\n\n")) {
+    textToSpeak = message.split("\n\n")[0]; // Get only the content before the note
   }
+  
+  // Stop any ongoing speech
+  if (_isSpeaking) {
+    await _flutterTts.stop();
+  }
+  
+  setState(() {
+    _isSpeaking = true;
+  });
+  
+  await _flutterTts.speak(textToSpeak);
+}
   
   // Speech-to-Text: Handle voice input
   void _handleVoiceInput() async {
