@@ -22,5 +22,5 @@ Due to GitHub’s file size limitations, the BioBERT TFLite model file (`biobert
 - Git (with Git LFS if you wish to track large files)
 - A device or emulator for running the app
 
-
+Note : Since we werent able to integrate the biobertmodel due to some issues, we completed the functionality using Gemini API
 
