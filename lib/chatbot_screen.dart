@@ -1,10 +1,35 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:tflite_flutter/tflite_flutter.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  final String patientName = "Patient";
+  final String patientLanguage = "Hindi"; // change as needed
+
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'BioBERT Chatbot',
+      theme: ThemeData(
+        primarySwatch: Colors.teal,
+      ),
+      home: ChatbotScreen(
+        patientName: patientName,
+        patientLanguage: patientLanguage,
+      ),
+    );
+  }
+}
 
 class ChatbotScreen extends StatefulWidget {
   final String patientName;
@@ -26,7 +51,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final List<ChatMessage> _messages = [];
   bool _isRecording = false;
   bool _isLoading = false;
-  
+
   // Voice related variables
   late FlutterTts _flutterTts;
   late stt.SpeechToText _speech;
@@ -34,85 +59,95 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   String _recognizedText = '';
   bool _isSpeaking = false;
 
+  // TFLite BioBERT model variables
+  late Interpreter _interpreter;
+  bool _isModelLoaded = false;
+
   @override
   void initState() {
     super.initState();
     _initializeTts();
     _initializeStt();
     _requestPermissions();
-    
-    // Add first bot message
-    _addBotMessage("Hi ${widget.patientName}, how can I help you today? I'll respond in ${widget.patientLanguage}.");
+    _loadModel(); // Load the BioBERT TFLite model
+
+    // Add the initial bot message
+    _addBotMessage(
+        "Hi ${widget.patientName}, how can I help you today? I'll respond in ${widget.patientLanguage}.");
   }
-  
+
   @override
   void dispose() {
     _flutterTts.stop();
+    _interpreter.close(); // Release the TFLite interpreter resources
     super.dispose();
   }
-  
+
+  /// Load the TFLite model from assets.
+  Future<void> _loadModel() async {
+    try {
+      _interpreter = await Interpreter.fromAsset('assets/biobert_qa.tflite');
+      setState(() {
+        _isModelLoaded = true;
+      });
+      print('BioBERT model loaded successfully.');
+    } catch (e, stacktrace) {
+      print('Error loading BioBERT model: $e');
+      print(stacktrace);
+    }
+  } // <-- Corrected: added closing brace
+
+  /// Offline translation using ML Kit (for non-English languages)
   Future<String> _translateOffline(String text) async {
-  // Map your patient language to ML Kit's TranslateLanguage.
-  TranslateLanguage sourceLang;
-  switch (widget.patientLanguage) {
-    case 'Hindi':
-      sourceLang = TranslateLanguage.hindi;
-      break;
-    case 'Spanish':
-      sourceLang = TranslateLanguage.spanish;
-      break;
-    case 'French':
-      sourceLang = TranslateLanguage.french;
-      break;
-    // Add more cases as needed.
-    default:
-      sourceLang = TranslateLanguage.english;
+    TranslateLanguage sourceLang;
+    switch (widget.patientLanguage) {
+      case 'Hindi':
+        sourceLang = TranslateLanguage.hindi;
+        break;
+      case 'Spanish':
+        sourceLang = TranslateLanguage.spanish;
+        break;
+      case 'French':
+        sourceLang = TranslateLanguage.french;
+        break;
+      default:
+        sourceLang = TranslateLanguage.english;
+    }
+
+    final translator = OnDeviceTranslator(
+      sourceLanguage: sourceLang,
+      targetLanguage: TranslateLanguage.english,
+    );
+
+    String translatedText = "";
+    try {
+      translatedText = await translator.translateText(text);
+    } catch (e) {
+      print("Translation error: $e");
+      translatedText = text;
+    }
+
+    translator.close();
+    return translatedText;
   }
-  
-  // Create the translator with the source language and English as the target.
-  final translator = OnDeviceTranslator(
-    sourceLanguage: sourceLang,
-    targetLanguage: TranslateLanguage.english,
-  );
-  
-  // Ensure the translation model is downloaded.
-  //await translator.downloadModelIfNeeded();
 
-  String translatedText = "";
-  try {
-    translatedText = await translator.translateText(text);
-  } catch (e) {
-    print("Translation error: $e");
-    // Fallback to the original text if translation fails.
-    translatedText = text;
-  }
-  
-  // Free up resources.
-  translator.close();
-  
-  return translatedText;
-}
-
-
-  // Initialize Text-to-Speech
+  /// Initialize Text-to-Speech
   Future<void> _initializeTts() async {
     _flutterTts = FlutterTts();
-    
-    // Configure TTS settings
+
     await _flutterTts.setLanguage(_getLanguageCode(widget.patientLanguage));
-    await _flutterTts.setSpeechRate(0.5);  // Speed of speech
-    await _flutterTts.setVolume(1.0);      // Volume of speech
-    await _flutterTts.setPitch(1.0);       // Pitch of speech
-    
-    // Set callback for speech completion
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.setPitch(1.0);
+
     _flutterTts.setCompletionHandler(() {
       setState(() {
         _isSpeaking = false;
       });
     });
   }
-  
-  // Initialize Speech-to-Text
+
+  /// Initialize Speech-to-Text
   Future<void> _initializeStt() async {
     _speech = stt.SpeechToText();
     _speechEnabled = await _speech.initialize(
@@ -120,54 +155,60 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       onStatus: (status) => print('Speech recognition status: $status'),
     );
   }
-  
-  // Request necessary permissions
+
+  /// Request necessary permissions
   Future<void> _requestPermissions() async {
     await Permission.microphone.request();
     await Permission.bluetoothConnect.request();
   }
-  
-  // Convert language name to language code for TTS
+
+  /// Convert language name to TTS language code.
   String _getLanguageCode(String language) {
     switch (language) {
-      case 'English': return 'en-US';
-      case 'Spanish': return 'es-ES';
-      case 'French': return 'fr-FR';
-      case 'German': return 'de-DE';
-      case 'Mandarin': return 'zh-CN';
-      case 'Hindi': return 'hi-IN';
-      case 'Arabic': return 'ar-SA';
-      default: return 'en-US';
+      case 'English':
+        return 'en-US';
+      case 'Spanish':
+        return 'es-ES';
+      case 'French':
+        return 'fr-FR';
+      case 'German':
+        return 'de-DE';
+      case 'Mandarin':
+        return 'zh-CN';
+      case 'Hindi':
+        return 'hi-IN';
+      case 'Arabic':
+        return 'ar-SA';
+      default:
+        return 'en-US';
     }
   }
 
+  /// Add a message from the bot.
   void _addBotMessage(String text) {
     setState(() {
-      _messages.add(
-        ChatMessage(
-          text: text,
-          isUserMessage: false,
-          timestamp: DateTime.now(),
-        ),
-      );
+      _messages.add(ChatMessage(
+        text: text,
+        isUserMessage: false,
+        timestamp: DateTime.now(),
+      ));
     });
     _scrollToBottom();
-    
-    // Speak the message if it's from the bot
+
+    // Speak the bot message.
     _speakMessage(text);
   }
 
+  /// Add a message from the user.
   void _addUserMessage(String text) {
     if (text.trim().isEmpty) return;
 
     setState(() {
-      _messages.add(
-        ChatMessage(
-          text: text,
-          isUserMessage: true,
-          timestamp: DateTime.now(),
-        ),
-      );
+      _messages.add(ChatMessage(
+        text: text,
+        isUserMessage: true,
+        timestamp: DateTime.now(),
+      ));
     });
     _messageController.clear();
     _scrollToBottom();
@@ -176,8 +217,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       _isLoading = true;
     });
 
-    Timer(const Duration(seconds: 1), () {
-      _processUserMessage(text);
+    Timer(const Duration(seconds: 1), () async {
+      await _processUserMessage(text);
       setState(() {
         _isLoading = false;
       });
@@ -185,140 +226,160 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
   }
 
- void _processUserMessage(String message) {
-  String lowerMessage = message.toLowerCase();
-  String response = "";
+  /// Process user message: translate (if needed) and run BioBERT inference.
+  Future<void> _processUserMessage(String message) async {
+    // If needed, translate to English (for non-English languages)
+    String englishText = message;
+    if (widget.patientLanguage != "English") {
+      englishText = await _translateOffline(message);
+    }
 
-  // Generate response based on user input
-  if (lowerMessage.contains("hello") || lowerMessage.contains("hi")) {
-    response = "Hello there! How are you feeling today?";
-  } else if (lowerMessage.contains("pain") || lowerMessage.contains("hurt")) {
-    response = "I'm sorry to hear you're in pain. Could you tell me more about where it hurts and when it started?";
-  } else if (lowerMessage.contains("fever") || lowerMessage.contains("temperature")) {
-    response = "Fever can be a sign of infection. Have you taken your temperature? Any other symptoms like headache or body aches?";
-  } else if (lowerMessage.contains("medicine") || lowerMessage.contains("medication")) {
-    response = "Are you currently taking any medications? It's important that I know to avoid any potential interactions.";
-  } else if (lowerMessage.contains("thank")) {
-    response = "You're welcome! Is there anything else I can help you with?";
-  } else {
-    response = "I understand. Could you provide more details so I can better assist you?";
+    // Send the English text to the BioBERT model.
+    String bioBertAnswer = await _runBioBertInference(englishText);
+
+    // Optionally translate the answer back if necessary.
+    String displayResponse = bioBertAnswer;
+    if (widget.patientLanguage == "Hindi") {
+      displayResponse = _translateToHindi(bioBertAnswer);
+    }
+
+    _addBotMessage(displayResponse);
   }
 
-  // Translate the response based on patient language
-  String translatedResponse = response;
-  if (widget.patientLanguage == "Hindi") {
-    translatedResponse = _translateToHindi(response);
-  } else if (widget.patientLanguage != "English") {
-    // For other languages, we'd add more translation methods
-    // For now, just add the note for display
-    translatedResponse = response;
+  /// Run inference on the BioBERT model.
+  Future<String> _runBioBertInference(String englishText) async {
+    if (!_isModelLoaded) {
+      return "Model not loaded.";
+    }
+
+    // 1. Preprocess: Tokenize the text.
+    // Replace the following with your actual tokenizer.
+    List<int> tokenIds = _tokenizeText(englishText);
+
+    // 2. Prepare input tensor.
+    const int sequenceLength = 128; // Adjust to your model's requirements.
+    List<int> input = List.filled(sequenceLength, 0);
+    for (int i = 0; i < tokenIds.length && i < sequenceLength; i++) {
+      input[i] = tokenIds[i];
+    }
+    var inputTensor = [input]; // Shape: [1, sequenceLength]
+
+    // 3. Prepare output buffer.
+    const int outputSize = 128; // Adjust based on your model.
+    var outputTensor = List.filled(outputSize, 0.0);
+    var output = [outputTensor];
+
+    // 4. Run inference.
+    try {
+      _interpreter.run(inputTensor, output);
+    } catch (e) {
+      print('Error during inference: $e');
+      return "Error processing query.";
+    }
+
+    // 5. Postprocess the model output.
+    String answer = _processModelOutput(output[0]);
+    return answer;
   }
 
-  // Display translated text with note for non-production environment
-  String displayResponse = translatedResponse;
-  if (widget.patientLanguage != "English") {
-    displayResponse = translatedResponse;
+  /// Dummy tokenization function.
+  /// Replace this with a tokenizer that matches your BioBERT vocabulary.
+  List<int> _tokenizeText(String text) {
+    // For demonstration, simply return the code units.
+    // In practice, convert text into token IDs as expected by your model.
+    return text.codeUnits;
   }
 
-  _addBotMessage(displayResponse);
-}
-
-// Simple translation function for demo purposes
-// In a real app, you would use a translation API or service
-String _translateToHindi(String englishText) {
-  // Basic translation map for common phrases
-  final Map<String, String> translations = {
-    "Hello there! How are you feeling today?": 
-      "नमस्ते! आज आप कैसा महसूस कर रहे हैं?",
-    
-    "I'm sorry to hear you're in pain. Could you tell me more about where it hurts and when it started?": 
-      "मुझे दुख है कि आपको दर्द हो रहा है। क्या आप मुझे बता सकते हैं कि यह कहां दर्द होता है और कब शुरू हुआ था?",
-    
-    "Fever can be a sign of infection. Have you taken your temperature? Any other symptoms like headache or body aches?": 
-      "बुखार संक्रमण का संकेत हो सकता है। क्या आपने अपना तापमान लिया है? सिरदर्द या शरीर में दर्द जैसे कोई अन्य लक्षण?",
-    
-    "Are you currently taking any medications? It's important that I know to avoid any potential interactions.": 
-      "क्या आप वर्तमान में कोई दवाएं ले रहे हैं? किसी भी संभावित प्रतिक्रिया से बचने के लिए मेरा जानना जरूरी है।",
-    
-    "You're welcome! Is there anything else I can help you with?": 
-      "आपका स्वागत है! क्या कोई और चीज़ है जिसमें मैं आपकी मदद कर सकता हूँ?",
-    
-    "I understand. Could you provide more details so I can better assist you?": 
-      "मैं समझता हूँ। क्या आप अधिक विवरण प्रदान कर सकते हैं ताकि मैं आपकी बेहतर सहायता कर सकूं?"
-  };
-
-  // Return translation if available, otherwise return original text
-  return translations[englishText] ?? englishText;
-}
-
-
-
-  // Text-to-Speech: Convert bot messages to speech
-Future<void> _speakMessage(String message) async {
-  // Don't speak the translation note
-  String textToSpeak = message;
-  if (message.contains("\n\n")) {
-    textToSpeak = message.split("\n\n")[0]; // Get only the content before the note
+  /// Dummy postprocessing function.
+  /// Replace this with your actual logic to convert model output into text.
+  String _processModelOutput(List<double> output) {
+    // For demonstration, we return a placeholder answer.
+    // In a real application, convert the output tokens into a readable string.
+    return "This is a sample answer from BioBERT.";
   }
-  
-  // Stop any ongoing speech
-  if (_isSpeaking) {
-    await _flutterTts.stop();
+
+  /// Simple translation for demo purposes (English -> Hindi).
+  String _translateToHindi(String englishText) {
+    final Map<String, String> translations = {
+      "Hello there! How are you feeling today?":
+          "नमस्ते! आज आप कैसा महसूस कर रहे हैं?",
+      "I'm sorry to hear you're in pain. Could you tell me more about where it hurts and when it started?":
+          "मुझे दुख है कि आपको दर्द हो रहा है। क्या आप मुझे बता सकते हैं कि यह कहां दर्द होता है और कब शुरू हुआ था?",
+      "Fever can be a sign of infection. Have you taken your temperature? Any other symptoms like headache or body aches?":
+          "बुखार संक्रमण का संकेत हो सकता है। क्या आपने अपना तापमान लिया है? सिरदर्द या शरीर में दर्द जैसे कोई अन्य लक्षण?",
+      "Are you currently taking any medications? It's important that I know to avoid any potential interactions.":
+          "क्या आप वर्तमान में कोई दवाएं ले रहे हैं? किसी भी संभावित प्रतिक्रिया से बचने के लिए मेरा जानना जरूरी है।",
+      "You're welcome! Is there anything else I can help you with?":
+          "आपका स्वागत है! क्या कोई और चीज़ है जिसमें मैं आपकी मदद कर सकता हूँ?",
+      "I understand. Could you provide more details so I can better assist you?":
+          "मैं समझता हूँ। क्या आप अधिक विवरण प्रदान कर सकते हैं ताकि मैं आपकी बेहतर सहायता कर सकूं?"
+    };
+
+    return translations[englishText] ?? englishText;
   }
-  
-  setState(() {
-    _isSpeaking = true;
-  });
-  
-  await _flutterTts.speak(textToSpeak);
-}
-  
-  // Speech-to
-  void _handleVoiceInput() async {
-  if (_isRecording) {
-    _speech.stop();
+
+  /// Text-to-Speech: Speak the given message.
+  Future<void> _speakMessage(String message) async {
+    String textToSpeak = message;
+    if (message.contains("\n\n")) {
+      textToSpeak = message.split("\n\n")[0];
+    }
+
+    if (_isSpeaking) {
+      await _flutterTts.stop();
+    }
+
     setState(() {
-      _isRecording = false;
+      _isSpeaking = true;
     });
-    
-    if (_recognizedText.isNotEmpty) {
-      String textToProcess = _recognizedText;
-      // Only translate if the patient's language isn't already English.
-      if (widget.patientLanguage != "English") {
-        textToProcess = await _translateOffline(_recognizedText);
-      }
-      _addUserMessage(textToProcess);
-      _recognizedText = '';
-    }
-  } else {
-    if (_speechEnabled) {
+
+    await _flutterTts.speak(textToSpeak);
+  }
+
+  /// Handle voice input from the user.
+  void _handleVoiceInput() async {
+    if (_isRecording) {
+      _speech.stop();
       setState(() {
-        _isRecording = true;
-        _recognizedText = '';
+        _isRecording = false;
       });
-      
-      await _speech.listen(
-        onResult: (result) {
-          setState(() {
-            _recognizedText = result.recognizedWords;
-          });
-        },
-        listenFor: const Duration(seconds: 30),
-        localeId: _getLanguageCode(widget.patientLanguage),
-        cancelOnError: true,
-      );
+
+      if (_recognizedText.isNotEmpty) {
+        String textToProcess = _recognizedText;
+        if (widget.patientLanguage != "English") {
+          textToProcess = await _translateOffline(_recognizedText);
+        }
+        _addUserMessage(textToProcess);
+        _recognizedText = '';
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Speech recognition is not available on this device'),
-        ),
-      );
+      if (_speechEnabled) {
+        setState(() {
+          _isRecording = true;
+          _recognizedText = '';
+        });
+
+        await _speech.listen(
+          onResult: (result) {
+            setState(() {
+              _recognizedText = result.recognizedWords;
+            });
+          },
+          listenFor: const Duration(seconds: 30),
+          localeId: _getLanguageCode(widget.patientLanguage),
+          cancelOnError: true,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Speech recognition is not available on this device'),
+          ),
+        );
+      }
     }
   }
-}
 
-
-
+  /// Scroll to the bottom of the chat list.
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       Timer(const Duration(milliseconds: 100), () {
@@ -349,7 +410,7 @@ Future<void> _speakMessage(String message) async {
           ],
         ),
         actions: [
-          // TTS control button
+          // TTS control button.
           IconButton(
             icon: Icon(
               _isSpeaking ? Icons.volume_off : Icons.volume_up,
@@ -362,7 +423,6 @@ Future<void> _speakMessage(String message) async {
                   _isSpeaking = false;
                 });
               } else if (_messages.isNotEmpty) {
-                // Speak the last bot message
                 for (int i = _messages.length - 1; i >= 0; i--) {
                   if (!_messages[i].isUserMessage) {
                     _speakMessage(_messages[i].text);
@@ -423,14 +483,14 @@ Future<void> _speakMessage(String message) async {
                   )
                 : ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 12),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       return _buildMessageBubble(_messages[index]);
                     },
                   ),
           ),
-          
           if (_isLoading)
             Padding(
               padding: const EdgeInsets.all(8.0),
@@ -456,10 +516,10 @@ Future<void> _speakMessage(String message) async {
                 ],
               ),
             ),
-          
           if (_isRecording)
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               color: Colors.red.shade50,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,9 +564,9 @@ Future<void> _speakMessage(String message) async {
                 ],
               ),
             ),
-          
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -580,11 +640,14 @@ Future<void> _speakMessage(String message) async {
     );
   }
 
+  /// Build individual message bubbles.
   Widget _buildMessageBubble(ChatMessage message) {
-    final isUser = message.isUserMessage;
-    final bubbleColor = isUser ? Colors.teal.shade600 : Colors.grey.shade200;
+    final bool isUser = message.isUserMessage;
+    final bubbleColor =
+        isUser ? Colors.teal.shade600 : Colors.grey.shade200;
     final textColor = isUser ? Colors.white : Colors.black87;
-    final alignment = isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final alignment =
+        isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final bubbleBorderRadius = isUser
         ? const BorderRadius.only(
             topLeft: Radius.circular(16),
@@ -607,7 +670,7 @@ Future<void> _speakMessage(String message) async {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (!isUser) 
+              if (!isUser)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: CircleAvatar(
@@ -622,15 +685,14 @@ Future<void> _speakMessage(String message) async {
                 ),
               Flexible(
                 child: GestureDetector(
-                  onTap: !isUser ? () {
-                    // Speak the message when tapped (only for bot messages)
-                    _speakMessage(message.text);
-                  } : null,
+                  onTap: !isUser
+                      ? () {
+                          _speakMessage(message.text);
+                        }
+                      : null,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
+                        horizontal: 16, vertical: 10),
                     margin: EdgeInsets.only(
                       left: isUser ? 60 : 0,
                       right: isUser ? 0 : 60,
@@ -679,11 +741,13 @@ Future<void> _speakMessage(String message) async {
     );
   }
 
+  /// Format the message timestamp.
   String _formatTimestamp(DateTime timestamp) {
     return "${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}";
   }
 }
 
+/// Model for chat messages.
 class ChatMessage {
   final String text;
   final bool isUserMessage;
