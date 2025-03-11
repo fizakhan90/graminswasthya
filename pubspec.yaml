@@ -40,11 +40,13 @@ dependencies:
   crypto: ^3.0.3
   flutter_tts: ^4.2.2
   speech_to_text: ^7.0.0
-  permission_handler: ^10.4.5
+  permission_handler: ^11.4.0
   encrypt: ^5.0.1
-  vosk_flutter: ^0.3.48
+  #vosk_flutter: ^0.3.48
   path_provider: ^2.0.0
   shared_preferences: ^2.2.0  # For storing language preference
+
+
 
 dev_dependencies:
   flutter_test:
@@ -68,8 +70,7 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  assets:
-    - assets/vosk_models/vosk-model-small-hi-0.22/
+  #assets:
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

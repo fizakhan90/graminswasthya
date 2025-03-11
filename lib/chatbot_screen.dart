@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
 
 class ChatbotScreen extends StatefulWidget {
   final String patientName;
   final String patientLanguage;
 
   const ChatbotScreen({
-    Key? key,
+    super.key,
     required this.patientName,
     required this.patientLanguage,
-  }) : super(key: key);
+  });
 
   @override
   _ChatbotScreenState createState() => _ChatbotScreenState();
@@ -21,11 +25,76 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final List<ChatMessage> _messages = [];
   bool _isRecording = false;
   bool _isLoading = false;
+  
+  // Voice related variables
+  late FlutterTts _flutterTts;
+  late stt.SpeechToText _speech;
+  bool _speechEnabled = false;
+  String _recognizedText = '';
+  bool _isSpeaking = false;
 
   @override
   void initState() {
     super.initState();
+    _initializeTts();
+    _initializeStt();
+    _requestPermissions();
+    
+    // Add first bot message
     _addBotMessage("Hi ${widget.patientName}, how can I help you today? I'll respond in ${widget.patientLanguage}.");
+  }
+  
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    super.dispose();
+  }
+  
+  // Initialize Text-to-Speech
+  Future<void> _initializeTts() async {
+    _flutterTts = FlutterTts();
+    
+    // Configure TTS settings
+    await _flutterTts.setLanguage(_getLanguageCode(widget.patientLanguage));
+    await _flutterTts.setSpeechRate(0.5);  // Speed of speech
+    await _flutterTts.setVolume(1.0);      // Volume of speech
+    await _flutterTts.setPitch(1.0);       // Pitch of speech
+    
+    // Set callback for speech completion
+    _flutterTts.setCompletionHandler(() {
+      setState(() {
+        _isSpeaking = false;
+      });
+    });
+  }
+  
+  // Initialize Speech-to-Text
+  Future<void> _initializeStt() async {
+    _speech = stt.SpeechToText();
+    _speechEnabled = await _speech.initialize(
+      onError: (error) => print('Speech recognition error: $error'),
+      onStatus: (status) => print('Speech recognition status: $status'),
+    );
+  }
+  
+  // Request necessary permissions
+  Future<void> _requestPermissions() async {
+    await Permission.microphone.request();
+    await Permission.bluetoothConnect.request();
+  }
+  
+  // Convert language name to language code for TTS
+  String _getLanguageCode(String language) {
+    switch (language) {
+      case 'English': return 'en-US';
+      case 'Spanish': return 'es-ES';
+      case 'French': return 'fr-FR';
+      case 'German': return 'de-DE';
+      case 'Mandarin': return 'zh-CN';
+      case 'Hindi': return 'hi-IN';
+      case 'Arabic': return 'ar-SA';
+      default: return 'en-US';
+    }
   }
 
   void _addBotMessage(String text) {
@@ -39,6 +108,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       );
     });
     _scrollToBottom();
+    
+    // Speak the message if it's from the bot
+    _speakMessage(text);
   }
 
   void _addUserMessage(String text) {
@@ -87,29 +159,75 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       response = "I understand. Could you provide more details so I can better assist you?";
     }
 
+    // Only add language note for text display, not for speech
+    String displayResponse = response;
     if (widget.patientLanguage != "English") {
-      response += "\n\n(This would be translated to ${widget.patientLanguage} in a production environment)";
+      displayResponse = response + "\n\n(This would be translated to ${widget.patientLanguage} in a production environment)";
     }
 
-    _addBotMessage(response);
+    _addBotMessage(displayResponse);
   }
 
-  void _handleVoiceInput() {
+  // Text-to-Speech: Convert bot messages to speech
+  Future<void> _speakMessage(String message) async {
+    // Don't speak the translation note
+    String textToSpeak = message;
+    if (widget.patientLanguage != "English") {
+      textToSpeak = message.split("\n\n")[0]; // Get only the content before the note
+    }
+    
+    // Stop any ongoing speech
+    if (_isSpeaking) {
+      await _flutterTts.stop();
+    }
+    
+    setState(() {
+      _isSpeaking = true;
+    });
+    
+    await _flutterTts.speak(textToSpeak);
+  }
+  
+  // Speech-to-Text: Handle voice input
+  void _handleVoiceInput() async {
     if (_isRecording) {
+      // Stop recording
+      _speech.stop();
       setState(() {
         _isRecording = false;
       });
-      _addUserMessage("This is a simulated voice message.");
+      
+      // If we got some recognized text, use it
+      if (_recognizedText.isNotEmpty) {
+        _addUserMessage(_recognizedText);
+        _recognizedText = '';
+      }
     } else {
-      setState(() {
-        _isRecording = true;
-      });
-
-      Timer(const Duration(seconds: 3), () {
-        if (_isRecording) {
-          _handleVoiceInput(); // Simulate voice stop after 3s
-        }
-      });
+      // Start recording if speech recognition is available
+      if (_speechEnabled) {
+        setState(() {
+          _isRecording = true;
+          _recognizedText = '';
+        });
+        
+        await _speech.listen(
+          onResult: (result) {
+            setState(() {
+              _recognizedText = result.recognizedWords;
+            });
+          },
+          listenFor: const Duration(seconds: 30),
+          localeId: _getLanguageCode(widget.patientLanguage),
+          cancelOnError: true,
+        );
+      } else {
+        // Show error if speech recognition isn't available
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Speech recognition is not available on this device'),
+          ),
+        );
+      }
     }
   }
 
@@ -125,46 +243,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     }
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
-    return Align(
-      alignment: message.isUserMessage ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-        decoration: BoxDecoration(
-          color: message.isUserMessage ? Colors.teal[100] : Colors.grey[200],
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: message.isUserMessage ? const Radius.circular(16) : const Radius.circular(0),
-            bottomRight: message.isUserMessage ? const Radius.circular(0) : const Radius.circular(16),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              message.text,
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}",
-              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -172,11 +250,41 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.patientName, style: const TextStyle(fontSize: 18)),
-            Text("Language: ${widget.patientLanguage}", style: const TextStyle(fontSize: 12)),
+            Text(
+              widget.patientName,
+              style: const TextStyle(fontSize: 18),
+            ),
+            Text(
+              "Language: ${widget.patientLanguage}",
+              style: const TextStyle(fontSize: 12),
+            ),
           ],
         ),
         actions: [
+          // TTS control button
+          IconButton(
+            icon: Icon(
+              _isSpeaking ? Icons.volume_off : Icons.volume_up,
+              color: _isSpeaking ? Colors.teal : null,
+            ),
+            onPressed: () {
+              if (_isSpeaking) {
+                _flutterTts.stop();
+                setState(() {
+                  _isSpeaking = false;
+                });
+              } else if (_messages.isNotEmpty) {
+                // Speak the last bot message
+                for (int i = _messages.length - 1; i >= 0; i--) {
+                  if (!_messages[i].isUserMessage) {
+                    _speakMessage(_messages[i].text);
+                    break;
+                  }
+                }
+              }
+            },
+            tooltip: _isSpeaking ? 'Stop speaking' : 'Speak last message',
+          ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: () {
@@ -186,7 +294,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   title: const Text("About This Chatbot"),
                   content: Text(
                     "This medical assistant chatbot can understand and respond in ${widget.patientLanguage}. "
-                    "You can type messages or use voice input to communicate.",
+                    "You can type messages or use voice input to communicate. "
+                    "The chatbot can also speak responses aloud.",
                   ),
                   actions: [
                     TextButton(
@@ -208,19 +317,32 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey[300]),
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 80,
+                          color: Colors.grey[300],
+                        ),
                         const SizedBox(height: 16),
-                        Text("Start your conversation", style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+                        Text(
+                          "Start your conversation",
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
+                        ),
                       ],
                     ),
                   )
                 : ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                     itemCount: _messages.length,
-                    itemBuilder: (context, index) => _buildMessageBubble(_messages[index]),
+                    itemBuilder: (context, index) {
+                      return _buildMessageBubble(_messages[index]);
+                    },
                   ),
           ),
+          
           if (_isLoading)
             Padding(
               padding: const EdgeInsets.all(8.0),
@@ -230,28 +352,71 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal[300]),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.teal[300],
+                    ),
                   ),
                   const SizedBox(width: 16),
-                  Text("Processing...", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                  Text(
+                    "Processing...",
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
                 ],
               ),
             ),
+          
           if (_isRecording)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               color: Colors.red.shade50,
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.mic, color: Colors.red[400], size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text("Recording... Speak now", style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.w500)),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.mic,
+                        color: Colors.red[400],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          "Recording... Speak now",
+                          style: TextStyle(
+                            color: Colors.red[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        "Tap microphone to stop",
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text("Tap mic to stop", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  if (_recognizedText.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0, left: 32),
+                      child: Text(
+                        "\"$_recognizedText\"",
+                        style: TextStyle(
+                          color: Colors.grey[800],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
+          
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             decoration: BoxDecoration(
@@ -269,7 +434,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: Icon(_isRecording ? Icons.stop : Icons.mic, color: _isRecording ? Colors.red : Colors.grey[700]),
+                    icon: Icon(
+                      _isRecording ? Icons.stop : Icons.mic,
+                      color: _isRecording ? Colors.red : Colors.grey[700],
+                    ),
                     onPressed: _handleVoiceInput,
                   ),
                   Expanded(
@@ -277,21 +445,29 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       controller: _messageController,
                       decoration: InputDecoration(
                         hintText: "Type a message...",
+                        hintStyle: TextStyle(color: Colors.grey[400]),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
                         fillColor: Colors.grey[100],
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
                       ),
                       textCapitalization: TextCapitalization.sentences,
-                      onSubmitted: (value) => _addUserMessage(value),
+                      onSubmitted: (value) {
+                        _addUserMessage(value);
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
                   InkWell(
-                    onTap: () => _addUserMessage(_messageController.text),
+                    onTap: () {
+                      _addUserMessage(_messageController.text);
+                    },
                     borderRadius: BorderRadius.circular(50),
                     child: Container(
                       width: 40,
@@ -300,7 +476,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         color: Colors.teal,
                         borderRadius: BorderRadius.circular(50),
                       ),
-                      child: const Icon(Icons.send, color: Colors.white, size: 18),
+                      child: const Icon(
+                        Icons.send,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ],
@@ -310,6 +490,109 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildMessageBubble(ChatMessage message) {
+    final isUser = message.isUserMessage;
+    final bubbleColor = isUser ? Colors.teal.shade600 : Colors.grey.shade200;
+    final textColor = isUser ? Colors.white : Colors.black87;
+    final alignment = isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final bubbleBorderRadius = isUser
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomLeft: Radius.circular(16),
+            bottomRight: Radius.circular(4),
+          )
+        : const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomRight: Radius.circular(16),
+            bottomLeft: Radius.circular(4),
+          );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: alignment,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isUser) 
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.teal.shade100,
+                    radius: 16,
+                    child: Icon(
+                      Icons.medical_services,
+                      size: 16,
+                      color: Colors.teal.shade700,
+                    ),
+                  ),
+                ),
+              Flexible(
+                child: GestureDetector(
+                  onTap: !isUser ? () {
+                    // Speak the message when tapped (only for bot messages)
+                    _speakMessage(message.text);
+                  } : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    margin: EdgeInsets.only(
+                      left: isUser ? 60 : 0,
+                      right: isUser ? 0 : 60,
+                    ),
+                    decoration: BoxDecoration(
+                      color: bubbleColor,
+                      borderRadius: bubbleBorderRadius,
+                    ),
+                    child: Text(
+                      message.text,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (isUser)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.teal.shade700,
+                    radius: 16,
+                    child: const Icon(
+                      Icons.person,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+            child: Text(
+              _formatTimestamp(message.timestamp),
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 10,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(DateTime timestamp) {
+    return "${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}";
   }
 }
 

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:graminswasthya/login_screen.dart';
 import 'package:graminswasthya/splash_screen.dart';
 
 void main() {
