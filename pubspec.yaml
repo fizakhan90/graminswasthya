@@ -46,6 +46,8 @@ dependencies:
   path_provider: ^2.0.0
   shared_preferences: ^2.2.0  # For storing language preference
   google_mlkit_translation: ^0.12.0
+  tflite_flutter: ^0.11.0
+  #tflite_flutter_helper: ^0.2.0
 
 
 
@@ -71,7 +73,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  #assets:
+  assets:
+    - assets/biobert_qa.tflite
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
