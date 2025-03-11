@@ -45,6 +45,7 @@ dependencies:
   #vosk_flutter: ^0.3.48
   path_provider: ^2.0.0
   shared_preferences: ^2.2.0  # For storing language preference
+  google_mlkit_translation: ^0.12.0
 
 
 

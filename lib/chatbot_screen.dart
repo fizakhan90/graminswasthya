@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 
@@ -50,6 +51,49 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     super.dispose();
   }
   
+  Future<String> _translateOffline(String text) async {
+  // Map your patient language to ML Kit's TranslateLanguage.
+  TranslateLanguage sourceLang;
+  switch (widget.patientLanguage) {
+    case 'Hindi':
+      sourceLang = TranslateLanguage.hindi;
+      break;
+    case 'Spanish':
+      sourceLang = TranslateLanguage.spanish;
+      break;
+    case 'French':
+      sourceLang = TranslateLanguage.french;
+      break;
+    // Add more cases as needed.
+    default:
+      sourceLang = TranslateLanguage.english;
+  }
+  
+  // Create the translator with the source language and English as the target.
+  final translator = OnDeviceTranslator(
+    sourceLanguage: sourceLang,
+    targetLanguage: TranslateLanguage.english,
+  );
+  
+  // Ensure the translation model is downloaded.
+  //await translator.downloadModelIfNeeded();
+
+  String translatedText = "";
+  try {
+    translatedText = await translator.translateText(text);
+  } catch (e) {
+    print("Translation error: $e");
+    // Fallback to the original text if translation fails.
+    translatedText = text;
+  }
+  
+  // Free up resources.
+  translator.close();
+  
+  return translatedText;
+}
+
+
   // Initialize Text-to-Speech
   Future<void> _initializeTts() async {
     _flutterTts = FlutterTts();
@@ -173,7 +217,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   // Display translated text with note for non-production environment
   String displayResponse = translatedResponse;
   if (widget.patientLanguage != "English") {
-    displayResponse = translatedResponse + "\n\n(This would connect to a proper translation API in production)";
+    displayResponse = translatedResponse;
   }
 
   _addBotMessage(displayResponse);
@@ -229,48 +273,51 @@ Future<void> _speakMessage(String message) async {
   await _flutterTts.speak(textToSpeak);
 }
   
-  // Speech-to-Text: Handle voice input
+  // Speech-to
   void _handleVoiceInput() async {
-    if (_isRecording) {
-      // Stop recording
-      _speech.stop();
+  if (_isRecording) {
+    _speech.stop();
+    setState(() {
+      _isRecording = false;
+    });
+    
+    if (_recognizedText.isNotEmpty) {
+      String textToProcess = _recognizedText;
+      // Only translate if the patient's language isn't already English.
+      if (widget.patientLanguage != "English") {
+        textToProcess = await _translateOffline(_recognizedText);
+      }
+      _addUserMessage(textToProcess);
+      _recognizedText = '';
+    }
+  } else {
+    if (_speechEnabled) {
       setState(() {
-        _isRecording = false;
+        _isRecording = true;
+        _recognizedText = '';
       });
       
-      // If we got some recognized text, use it
-      if (_recognizedText.isNotEmpty) {
-        _addUserMessage(_recognizedText);
-        _recognizedText = '';
-      }
+      await _speech.listen(
+        onResult: (result) {
+          setState(() {
+            _recognizedText = result.recognizedWords;
+          });
+        },
+        listenFor: const Duration(seconds: 30),
+        localeId: _getLanguageCode(widget.patientLanguage),
+        cancelOnError: true,
+      );
     } else {
-      // Start recording if speech recognition is available
-      if (_speechEnabled) {
-        setState(() {
-          _isRecording = true;
-          _recognizedText = '';
-        });
-        
-        await _speech.listen(
-          onResult: (result) {
-            setState(() {
-              _recognizedText = result.recognizedWords;
-            });
-          },
-          listenFor: const Duration(seconds: 30),
-          localeId: _getLanguageCode(widget.patientLanguage),
-          cancelOnError: true,
-        );
-      } else {
-        // Show error if speech recognition isn't available
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Speech recognition is not available on this device'),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Speech recognition is not available on this device'),
+        ),
+      );
     }
   }
+}
+
+
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
