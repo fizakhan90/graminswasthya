@@ -30,20 +30,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: ^1.0.8
   sqflite: ^2.3.0  # SQLite plugin for Flutter
   path: ^1.8.3     # For managing database file paths
   crypto: ^3.0.3
   flutter_tts: ^4.2.2
   speech_to_text: ^7.0.0
-  permission_handler: ^11.4.0
-
-  flutter_localizations:
-    sdk: flutter
+  permission_handler: ^10.4.5
+  encrypt: ^5.0.1
+  vosk_flutter: ^0.3.48
+  path_provider: ^2.0.0
   shared_preferences: ^2.2.0  # For storing language preference
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
 
 dev_dependencies:
   flutter_test:
@@ -61,16 +62,14 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/vosk_models/vosk-model-small-hi-0.22/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

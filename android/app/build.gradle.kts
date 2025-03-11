@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.graminswasthya"
+    namespace = "org.vosk.vosk_flutter"
     compileSdk = 35
     ndkVersion = flutter.ndkVersion
 

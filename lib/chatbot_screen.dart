@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:flutter/services.dart';
 
 class ChatbotScreen extends StatefulWidget {
   final String patientName;
@@ -88,10 +87,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       response = "I understand. Could you provide more details so I can better assist you?";
     }
 
-    String languageNote = "";
     if (widget.patientLanguage != "English") {
-      languageNote = "\n\n(This would be translated to ${widget.patientLanguage} in a production environment)";
-      response += languageNote;
+      response += "\n\n(This would be translated to ${widget.patientLanguage} in a production environment)";
     }
 
     _addBotMessage(response);
@@ -102,8 +99,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       setState(() {
         _isRecording = false;
       });
-      
-      _addUserMessage("This is a simulated voice message");
+      _addUserMessage("This is a simulated voice message.");
     } else {
       setState(() {
         _isRecording = true;
@@ -111,7 +107,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
       Timer(const Duration(seconds: 3), () {
         if (_isRecording) {
-          _handleVoiceInput(); 
+          _handleVoiceInput(); // Simulate voice stop after 3s
         }
       });
     }
@@ -129,6 +125,46 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     }
   }
 
+  Widget _buildMessageBubble(ChatMessage message) {
+    return Align(
+      alignment: message.isUserMessage ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+        decoration: BoxDecoration(
+          color: message.isUserMessage ? Colors.teal[100] : Colors.grey[200],
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: message.isUserMessage ? const Radius.circular(16) : const Radius.circular(0),
+            bottomRight: message.isUserMessage ? const Radius.circular(0) : const Radius.circular(16),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message.text,
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}",
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -136,14 +172,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.patientName,
-              style: const TextStyle(fontSize: 18),
-            ),
-            Text(
-              "Language: ${widget.patientLanguage}",
-              style: const TextStyle(fontSize: 12),
-            ),
+            Text(widget.patientName, style: const TextStyle(fontSize: 18)),
+            Text("Language: ${widget.patientLanguage}", style: const TextStyle(fontSize: 12)),
           ],
         ),
         actions: [
@@ -178,32 +208,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.chat_bubble_outline,
-                          size: 80,
-                          color: Colors.grey[300],
-                        ),
+                        Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey[300]),
                         const SizedBox(height: 16),
-                        Text(
-                          "Start your conversation",
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 16,
-                          ),
-                        ),
+                        Text("Start your conversation", style: TextStyle(color: Colors.grey[600], fontSize: 16)),
                       ],
                     ),
                   )
                 : ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                     itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      return _buildMessageBubble(_messages[index]);
-                    },
+                    itemBuilder: (context, index) => _buildMessageBubble(_messages[index]),
                   ),
           ),
-          
           if (_isLoading)
             Padding(
               padding: const EdgeInsets.all(8.0),
@@ -213,55 +230,28 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.teal[300],
-                    ),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal[300]),
                   ),
                   const SizedBox(width: 16),
-                  Text(
-                    "Processing...",
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
-                  ),
+                  Text("Processing...", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
                 ],
               ),
             ),
-          
           if (_isRecording)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               color: Colors.red.shade50,
               child: Row(
                 children: [
-                  Icon(
-                    Icons.mic,
-                    color: Colors.red[400],
-                    size: 20,
-                  ),
+                  Icon(Icons.mic, color: Colors.red[400], size: 20),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      "Recording... Speak now",
-                      style: TextStyle(
-                        color: Colors.red[700],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    child: Text("Recording... Speak now", style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.w500)),
                   ),
-                  Text(
-                    "Tap microphone to stop",
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
+                  Text("Tap mic to stop", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                 ],
               ),
             ),
-          
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             decoration: BoxDecoration(
@@ -279,10 +269,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: Icon(
-                      _isRecording ? Icons.stop : Icons.mic,
-                      color: _isRecording ? Colors.red : Colors.grey[700],
-                    ),
+                    icon: Icon(_isRecording ? Icons.stop : Icons.mic, color: _isRecording ? Colors.red : Colors.grey[700]),
                     onPressed: _handleVoiceInput,
                   ),
                   Expanded(
@@ -290,29 +277,21 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       controller: _messageController,
                       decoration: InputDecoration(
                         hintText: "Type a message...",
-                        hintStyle: TextStyle(color: Colors.grey[400]),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
                         fillColor: Colors.grey[100],
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       ),
                       textCapitalization: TextCapitalization.sentences,
-                      onSubmitted: (value) {
-                        _addUserMessage(value);
-                      },
+                      onSubmitted: (value) => _addUserMessage(value),
                     ),
                   ),
                   const SizedBox(width: 8),
                   InkWell(
-                    onTap: () {
-                      _addUserMessage(_messageController.text);
-                    },
+                    onTap: () => _addUserMessage(_messageController.text),
                     borderRadius: BorderRadius.circular(50),
                     child: Container(
                       width: 40,
@@ -321,11 +300,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         color: Colors.teal,
                         borderRadius: BorderRadius.circular(50),
                       ),
-                      child: const Icon(
-                        Icons.send,
-                        color: Colors.white,
-                        size: 18,
-                      ),
+                      child: const Icon(Icons.send, color: Colors.white, size: 18),
                     ),
                   ),
                 ],
@@ -335,103 +310,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildMessageBubble(ChatMessage message) {
-    final isUser = message.isUserMessage;
-    final bubbleColor = isUser ? Colors.teal.shade600 : Colors.grey.shade200;
-    final textColor = isUser ? Colors.white : Colors.black87;
-    final alignment = isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final bubbleBorderRadius = isUser
-        ? const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(16),
-            bottomRight: Radius.circular(4),
-          )
-        : const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomRight: Radius.circular(16),
-            bottomLeft: Radius.circular(4),
-          );
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: alignment,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!isUser) 
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: CircleAvatar(
-                    backgroundColor: Colors.teal.shade100,
-                    radius: 16,
-                    child: Icon(
-                      Icons.medical_services,
-                      size: 16,
-                      color: Colors.teal.shade700,
-                    ),
-                  ),
-                ),
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  margin: EdgeInsets.only(
-                    left: isUser ? 60 : 0,
-                    right: isUser ? 0 : 60,
-                  ),
-                  decoration: BoxDecoration(
-                    color: bubbleColor,
-                    borderRadius: bubbleBorderRadius,
-                  ),
-                  child: Text(
-                    message.text,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ),
-              if (isUser)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: CircleAvatar(
-                    backgroundColor: Colors.teal.shade700,
-                    radius: 16,
-                    child: const Icon(
-                      Icons.person,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-            child: Text(
-              _formatTimestamp(message.timestamp),
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 10,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatTimestamp(DateTime timestamp) {
-    return "${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}";
   }
 }
 
